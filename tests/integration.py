@@ -1,6 +1,7 @@
 """Exercise real compiler invocations and incremental invalidation."""
 
 import argparse
+import os
 import pathlib
 import subprocess
 import tempfile
@@ -11,8 +12,38 @@ def exercise(binary, scratch, compiler):
     assert help_result.returncode == 0 and "-platform triple" in help_result.stdout and "-jobs count" in help_result.stdout, help_result.stdout + help_result.stderr
     version_result = subprocess.run([str(binary), "--version"], text=True, capture_output=True, timeout=30)
     assert version_result.returncode == 0 and version_result.stdout == "Flux 0.2.0\n", version_result.stdout + version_result.stderr
+    for old_spelling in ("help", "-help", "-h", "version", "-version"):
+        old_result = subprocess.run([str(binary), old_spelling], text=True, capture_output=True, timeout=30)
+        assert old_result.returncode != 0, old_spelling
     with tempfile.TemporaryDirectory(prefix="flux-integration-", dir=scratch) as temporary:
         project = pathlib.Path(temporary)
+        pager_commands = project / "pager-commands"
+        pager_commands.mkdir()
+        pager_capture = project / "language-syntax.txt"
+        pager_arguments = project / "pager-arguments.txt"
+        pager = pager_commands / "less"
+        pager.write_text('''#!/usr/bin/env python3
+import os
+import pathlib
+import sys
+pathlib.Path(os.environ["FLUX_PAGER_CAPTURE"]).write_bytes(sys.stdin.buffer.read())
+pathlib.Path(os.environ["FLUX_PAGER_ARGUMENTS"]).write_text("\\n".join(sys.argv[1:]))
+''')
+        pager.chmod(0o755)
+        pager_environment = dict(os.environ, PATH=str(pager_commands) + os.pathsep + os.environ["PATH"],
+                                 FLUX_PAGER_CAPTURE=str(pager_capture),
+                                 FLUX_PAGER_ARGUMENTS=str(pager_arguments))
+        syntax_result = subprocess.run([str(binary), "--language-syntax"], cwd=project,
+                                       env=pager_environment, text=True, capture_output=True, timeout=30)
+        assert syntax_result.returncode == 0, syntax_result.stdout + syntax_result.stderr
+        syntax_text = pager_capture.read_text()
+        assert "FLUX LANGUAGE SYNTAX" in syntax_text and "CUSTOM COMPILERS" in syntax_text
+        assert pager_arguments.read_text() == "-R"
+        syntax_output = project / "Flux Language.txt"
+        syntax_write = subprocess.run([str(binary), "--language-syntax", "-o", str(syntax_output)],
+                                      cwd=project, text=True, capture_output=True, timeout=30)
+        assert syntax_write.returncode == 0, syntax_write.stdout + syntax_write.stderr
+        assert syntax_output.read_text() == syntax_text
         source = project / "source"
         source.mkdir()
         headers = project / "include"

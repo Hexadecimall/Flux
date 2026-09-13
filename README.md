@@ -19,12 +19,15 @@ flux test
 flux clean
 flux --help
 flux --version
+flux --language-syntax [-o path]
 ```
 
 `init` creates a starter `Build.flx` without overwriting existing configuration.
 `check` checks syntax; `build` validates the supported configuration and builds.
 `run` builds an executable and forwards arguments and its exit status. `test`
 builds and executes targets declared with the `test` kind.
+`--language-syntax` opens the complete configuration reference in `less`; `-o`
+writes the same reference to a file.
 
 Outputs are stored under `build/<target-triple>/<profile>/out/`. Compiler caches
 and temporary files stay under `build/.flux/`. `clean` removes marked generated
