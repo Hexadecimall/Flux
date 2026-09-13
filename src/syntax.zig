@@ -349,9 +349,9 @@ const Parser = struct {
 test "compiler definitions parse without recursive compiler declarations" {
     const source =
         \\definition(compiler) {
-        \\    name("coolDudeCompiler")
-        \\    executable("coolcc")
-        \\    language("coolLanguage") {
+        \\    name("customCompiler")
+        \\    executable("customcc")
+        \\    language("customLanguage") {
         \\        implementation(argument(1), "")
         \\        header(argument(2), "-header")
         \\        library(argument(3), "-l {lib}")
@@ -388,7 +388,7 @@ test "preset and custom languages remain distinct values" {
     const source =
         \\project("Mixed") {
         \\    language(cxx) { compiler(zig) }
-        \\    language("coolLanguage") { compiler("coolDudeCompiler") }
+        \\    language("customLanguage") { compiler("customCompiler") }
         \\}
     ;
 
@@ -413,7 +413,7 @@ test "a project can select multiple languages and compilers" {
         \\project("Mixed Languages") {
         \\    language(c) { compiler(clang) }
         \\    language(cxx) { compiler(zig) }
-        \\    language("coolLanguage") { compiler("coolDudeCompiler") }
+        \\    language("customLanguage") { compiler("customCompiler") }
         \\}
     ;
 

@@ -21,7 +21,7 @@ fn run(initialization: std.process.Init) !u8 {
     }
 
     if (std.mem.eql(u8, arguments[1], "version") or std.mem.eql(u8, arguments[1], "-version")) {
-        writeStandardOutput(initialization.io, "Flux 0.1.0\n");
+        writeStandardOutput(initialization.io, "Flux 0.2.0\n");
         return 0;
     }
 
@@ -151,7 +151,7 @@ fn writeStandardError(input_output: std.Io, message: []const u8) void {
 }
 
 const help_text =
-    \\Flux 0.1.0
+    \\Flux 0.2.0
     \\
     \\Usage:
     \\  flux build [targetName] [-profile debug|release] [-target triple]

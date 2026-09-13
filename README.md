@@ -4,9 +4,8 @@ Flux is a build system written in Zig with declarative configuration, parallel
 C/C++ compilation, and content-based incremental rebuilds.
 
 The current implementation builds executables and static libraries with Clang,
-GCC, or Zig. Custom compiler definitions are parsed but do not execute yet.
-Dependency downloads, installation manifests, and function-level recompilation
-are not implemented.
+GCC, Zig, or a custom compiler definition. Dependency downloads, installation
+manifests, and function-level recompilation are not implemented.
 
 ## Commands
 
@@ -40,6 +39,20 @@ The current cache granularity is a C/C++ translation unit. Editing one function
 recompiles its source file and any affected dependents, not individual functions.
 Dependency preprocessing and content checks still run during a no-change build.
 
+## Installing Flux
+
+`./install.sh` downloads a binary from `Hexadecimall/Flux` releases for the host
+OS and architecture, verifies its SHA-256 checksum, and installs to `/usr/local/bin`.
+
+```sh
+./install.sh -prefix "$INSTALL_PREFIX" -version 0.2.0
+```
+
+An existing installation is not replaced. Supported targets are macOS and Linux
+on aarch64 and x86_64. Release tags use `v<version>`; each release must contain
+`flux-<architecture>-apple-darwin` or `flux-<architecture>-unknown-linux-musl`
+and a matching `.sha256` file. The default version is 0.2.0.
+
 ## Building Flux
 
 Zig 0.16.0 is required. Build and cache locations can be selected explicitly:
@@ -57,11 +70,12 @@ header edits, no-change builds, libraries, failed-build recovery, and commands.
 
 ## Configuration
 
-`Build.flx` is the project root. `Lockfile.flx` records resolved dependencies.
+`Build.flx` is the project root. `Lockfile.flx` is reserved for dependency locking;
+dependency resolution and lockfile generation are not implemented yet.
 Other `.flx` files are loaded explicitly with `yoink()`.
 
 ```flx
-project("Cool Project") {
+project("Example") {
     language(cxx) {
         compiler(zig)
     }
@@ -83,10 +97,10 @@ open-ended and can be supplied by custom compiler definitions.
 
 ```flx
 definition(compiler) {
-    name("coolDudeCompiler")
-    executable("coolcc")
+    name("customCompiler")
+    executable("customcc")
 
-    language("coolLanguage") {
+    language("customLanguage") {
         implementation(argument(1), "")
         header(argument(2), "-header")
         library(argument(3), "-l {lib}")
@@ -106,13 +120,23 @@ definition(compiler) {
 
 ```flx
 project("Custom Project") {
-    language("coolLanguage") {
-        compiler("coolDudeCompiler")
+    language("customLanguage") {
+        compiler("customCompiler")
     }
 }
 ```
 
 Built-in compiler selections are `builtIn`, `gcc`, `clang`, and `zig`.
+
+Custom compiler argument groups are emitted in their declared `argument()`
+order. A non-empty template is split into command arguments before its values.
+`{lib}` expands once per library. Debug selects `none`; release selects `max`.
+The compiler must create the requested output path. Failed invocations retain
+the last successful artifact.
+
+Custom-language targets currently invoke their compiler once per target and do
+not share the C/C++ translation-unit cache. Mixing custom-language and C/C++
+sources in one target is not implemented yet.
 
 `builtIn` currently invokes an installed Zig toolchain. Native macOS Zig C++
 links against the runtime discovered in the active SDK. Cross compilation through
@@ -128,8 +152,9 @@ Source patterns support `*`, `?`, and recursive `**`. `yoink()` resolves filenam
 relative to the containing configuration, deduplicates canonical paths, and
 rejects cycles. Wildcards in yoink filenames are not implemented yet.
 
-A project may select any number of languages. Each language has an independent
-compiler selection, and targets may combine their compiled object files.
+A project can build C and C++ with independent compiler selections and combine
+their compiled object files. It can also declare a custom language backed by a
+custom compiler definition.
 
 ```flx
 project("Mixed Languages") {
@@ -141,8 +166,8 @@ project("Mixed Languages") {
         compiler(zig)
     }
 
-    language("coolLanguage") {
-        compiler("coolDudeCompiler")
+    language("customLanguage") {
+        compiler("customCompiler")
     }
 }
 ```

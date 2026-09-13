@@ -101,6 +101,46 @@ int main() { printf("value=%d\\n", value()); return 0; }
         (project / "second.flx").write_text('yoink() { "Build.flx" }\n')
         circular = invoke("build", success=False)
         assert "CircularYoink" in circular, circular
+
+        custom_compiler = project / "custom-compiler"
+        custom_compiler.write_text('''#!/usr/bin/env python3
+import pathlib
+import sys
+pathlib.Path("custom-arguments.txt").write_text("\\n".join(sys.argv[1:]) + "\\n")
+output = pathlib.Path(sys.argv[sys.argv.index("--output") + 1])
+output.write_text("#!/bin/sh\\nprintf 'custom-ok\\\\n'\\n")
+output.chmod(0o755)
+''')
+        custom_compiler.chmod(0o755)
+        (source / "main.custom").write_text("custom source\n")
+        (headers / "api.custom").write_text("custom header\n")
+        config.write_text(f'''definition(compiler) {{
+    name("customCompiler")
+    executable("{custom_compiler}")
+    language("customLanguage") {{
+        optimization(argument(1)) {{
+            none("--debug")
+            max("--release")
+        }}
+        implementation(argument(2), "--sources")
+        header(argument(3), "--headers")
+        output(argument(4), "--output")
+    }}
+}}
+project("Custom Project") {{
+    language("customLanguage") {{ compiler("customCompiler") }}
+    target("custom app", executable) {{
+        source(implementation) {{ "source/*.custom" }}
+        source(header) {{ "include/*.custom" }}
+    }}
+}}
+''')
+        custom_run = invoke("run")
+        assert "custom-ok" in custom_run, custom_run
+        custom_arguments = (project / "custom-arguments.txt").read_text().splitlines()
+        assert custom_arguments[:5] == ["--debug", "--sources", "source/main.custom",
+                                       "--headers", "include/api.custom"], custom_arguments
+        assert custom_arguments[5] == "--output" and custom_arguments[6].endswith(".pending"), custom_arguments
         print(f"{compiler}: incremental edits, libraries, test, clean, init preservation, failure recovery, yoink cycle passed")
 
 
