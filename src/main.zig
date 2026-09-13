@@ -15,12 +15,12 @@ fn run(initialization: std.process.Init) !u8 {
     const allocator = initialization.arena.allocator();
     const arguments = try initialization.minimal.args.toSlice(allocator);
 
-    if (arguments.len == 1 or std.mem.eql(u8, arguments[1], "help") or std.mem.eql(u8, arguments[1], "-help") or std.mem.eql(u8, arguments[1], "-h")) {
+    if (arguments.len == 1 or std.mem.eql(u8, arguments[1], "help") or std.mem.eql(u8, arguments[1], "--help") or std.mem.eql(u8, arguments[1], "-help") or std.mem.eql(u8, arguments[1], "-h")) {
         writeStandardOutput(initialization.io, help_text);
         return 0;
     }
 
-    if (std.mem.eql(u8, arguments[1], "version") or std.mem.eql(u8, arguments[1], "-version")) {
+    if (std.mem.eql(u8, arguments[1], "version") or std.mem.eql(u8, arguments[1], "--version") or std.mem.eql(u8, arguments[1], "-version")) {
         writeStandardOutput(initialization.io, "Flux 0.2.0\n");
         return 0;
     }
@@ -79,10 +79,10 @@ fn run(initialization: std.process.Init) !u8 {
                 if (argument_index == arguments.len) return error.MissingOptionValue;
                 engine.jobs = std.fmt.parseInt(usize, arguments[argument_index], 10) catch return error.InvalidJobCount;
                 if (engine.jobs == 0 or engine.jobs > 256) return error.InvalidJobCount;
-            } else if (std.mem.eql(u8, argument, "-target") or std.mem.eql(u8, argument, "-profile")) {
+            } else if (std.mem.eql(u8, argument, "-platform") or std.mem.eql(u8, argument, "-profile")) {
                 argument_index += 1;
                 if (argument_index == arguments.len) return error.MissingOptionValue;
-                if (std.mem.eql(u8, argument, "-target")) engine.target_triple = arguments[argument_index] else engine.profile = arguments[argument_index];
+                if (std.mem.eql(u8, argument, "-platform")) engine.target_triple = arguments[argument_index] else engine.profile = arguments[argument_index];
             } else if (std.mem.startsWith(u8, argument, "-")) return error.UnknownOption else {
                 if (engine.selected != null) return error.TooManyTargetNames;
                 engine.selected = argument;
@@ -154,13 +154,14 @@ const help_text =
     \\Flux 0.2.0
     \\
     \\Usage:
-    \\  flux build [targetName] [-profile debug|release] [-target triple]
+    \\  flux build [targetName] [-profile debug|release] [-platform triple]
     \\  flux run [targetName] [-- arguments...]
     \\  flux test [targetName]
     \\  flux init
     \\  flux clean
     \\  flux check [Build.flx]
-    \\  flux version
+    \\  flux --help
+    \\  flux --version
     \\
 ;
 

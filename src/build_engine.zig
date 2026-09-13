@@ -266,7 +266,6 @@ pub const Engine = struct {
 
         const artifact = try std.fmt.allocPrint(engine.allocator, "{s}/{s}{s}{s}", .{ output_dir, if (is_library) "lib" else "", name, if (is_library) ".a" else if (builtin.os.tag == .windows and engine.target_triple == null) ".exe" else "" });
         const temporary = try std.fmt.allocPrint(engine.allocator, "{s}.pending", .{artifact});
-        Directory.cwd().deleteFile(engine.input_output, temporary) catch {};
         var command: std.ArrayList([]const u8) = .empty;
         try command.append(engine.allocator, definition.executable);
         const output_values = [_][]const u8{temporary};
@@ -280,9 +279,27 @@ pub const Engine = struct {
             };
             try engine.appendCustomArguments(&command, group.template, values, group.kind == .library);
         }
+        var cache_inputs: std.ArrayList([]const u8) = .empty;
+        try cache_inputs.appendSlice(engine.allocator, sources);
+        try cache_inputs.appendSlice(engine.allocator, headers);
+        try cache_inputs.appendSlice(engine.allocator, libraries);
+        const cache_manifest = try std.fmt.allocPrint(engine.allocator, "{s}/custom.key", .{object_dir});
+        const previous_key = Directory.cwd().readFileAlloc(engine.input_output, cache_manifest, engine.allocator, .limited(256)) catch "";
+        if (try engine.customCacheKey(command.items, artifact, cache_inputs.items)) |digest| {
+            if (same(previous_key, &digest)) {
+                std.debug.print("up to date: {s}\n", .{name});
+                try engine.artifacts.put(engine.allocator, name, artifact);
+                return artifact;
+            }
+        }
+        Directory.cwd().deleteFile(engine.input_output, cache_manifest) catch {};
+        Directory.cwd().deleteFile(engine.input_output, temporary) catch {};
         try engine.invoke(command.items);
         _ = Directory.cwd().statFile(engine.input_output, temporary, .{}) catch return error.CustomCompilerProducedNoOutput;
         try Directory.cwd().rename(temporary, Directory.cwd(), artifact, engine.input_output);
+        if (try engine.customCacheKey(command.items, artifact, cache_inputs.items)) |digest| {
+            try Directory.cwd().writeFile(engine.input_output, .{ .sub_path = cache_manifest, .data = &digest });
+        }
         std.debug.print("built {s}\n", .{artifact});
         try engine.artifacts.put(engine.allocator, name, artifact);
 
@@ -312,6 +329,40 @@ pub const Engine = struct {
                 try command.append(engine.allocator, try replaceAll(engine.allocator, word, "{lib}", value));
             } else try command.append(engine.allocator, word);
         }
+    }
+
+    fn customCacheKey(engine: *Engine, command: []const []const u8, artifact: []const u8, inputs: []const []const u8) !?[32]u8 {
+        var digest = std.crypto.hash.sha2.Sha256.init(.{});
+        digest.update(&engine.environment_digest);
+        for (command) |argument| {
+            digest.update(argument);
+            digest.update(&.{0});
+        }
+        const compiler_bytes = try engine.readExecutable(command[0]) orelse return null;
+        digest.update(compiler_bytes);
+        for (inputs) |path| {
+            digest.update(path);
+            digest.update(&.{0});
+            const content = Directory.cwd().readFileAlloc(engine.input_output, path, engine.allocator, .limited(512 * 1024 * 1024)) catch return null;
+            digest.update(content);
+        }
+        const output = Directory.cwd().readFileAlloc(engine.input_output, artifact, engine.allocator, .limited(512 * 1024 * 1024)) catch return null;
+        digest.update(output);
+        return digest.finalResult();
+    }
+
+    fn readExecutable(engine: *Engine, executable: []const u8) !?[]const u8 {
+        if (std.mem.indexOfAny(u8, executable, "/\\") != null) {
+            return Directory.cwd().readFileAlloc(engine.input_output, executable, engine.allocator, .limited(512 * 1024 * 1024)) catch null;
+        }
+        const environment = engine.environment orelse return null;
+        const search_path = environment.get("PATH") orelse return null;
+        var directories = std.mem.splitScalar(u8, search_path, if (builtin.os.tag == .windows) ';' else ':');
+        while (directories.next()) |directory| {
+            const candidate = try std.fs.path.join(engine.allocator, &.{ if (directory.len == 0) "." else directory, executable });
+            if (Directory.cwd().readFileAlloc(engine.input_output, candidate, engine.allocator, .limited(512 * 1024 * 1024)) catch null) |content| return content;
+        }
+        return null;
     }
 
     fn driver(engine: *Engine, compiler: []const u8, cpp: bool) !std.ArrayList([]const u8) {

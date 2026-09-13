@@ -7,6 +7,10 @@ import tempfile
 
 
 def exercise(binary, scratch, compiler):
+    help_result = subprocess.run([str(binary), "--help"], text=True, capture_output=True, timeout=30)
+    assert help_result.returncode == 0 and "-platform triple" in help_result.stdout, help_result.stdout + help_result.stderr
+    version_result = subprocess.run([str(binary), "--version"], text=True, capture_output=True, timeout=30)
+    assert version_result.returncode == 0 and version_result.stdout == "Flux 0.2.0\n", version_result.stdout + version_result.stderr
     with tempfile.TemporaryDirectory(prefix="flux-integration-", dir=scratch) as temporary:
         project = pathlib.Path(temporary)
         source = project / "source"
@@ -106,6 +110,8 @@ int main() { printf("value=%d\\n", value()); return 0; }
         custom_compiler.write_text('''#!/usr/bin/env python3
 import pathlib
 import sys
+count_path = pathlib.Path("custom-count.txt")
+count_path.write_text(str((int(count_path.read_text()) if count_path.exists() else 0) + 1))
 pathlib.Path("custom-arguments.txt").write_text("\\n".join(sys.argv[1:]) + "\\n")
 output = pathlib.Path(sys.argv[sys.argv.index("--output") + 1])
 output.write_text("#!/bin/sh\\nprintf 'custom-ok\\\\n'\\n")
@@ -141,6 +147,15 @@ project("Custom Project") {{
         assert custom_arguments[:5] == ["--debug", "--sources", "source/main.custom",
                                        "--headers", "include/api.custom"], custom_arguments
         assert custom_arguments[5] == "--output" and custom_arguments[6].endswith(".pending"), custom_arguments
+        custom_no_change = invoke("build")
+        assert "up to date: custom app" in custom_no_change, custom_no_change
+        assert (project / "custom-count.txt").read_text() == "1"
+        (source / "main.custom").write_text("changed custom source\n")
+        invoke("build")
+        assert (project / "custom-count.txt").read_text() == "2"
+        custom_compiler.write_text(custom_compiler.read_text() + "\n")
+        invoke("build")
+        assert (project / "custom-count.txt").read_text() == "3"
         print(f"{compiler}: incremental edits, libraries, test, clean, init preservation, failure recovery, yoink cycle passed")
 
 

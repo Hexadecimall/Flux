@@ -13,10 +13,12 @@ manifests, and function-level recompilation are not implemented.
 flux init
 flux check
 flux build -profile release -jobs 8
-flux build -target x86_64-unknown-linux-musl
+flux build -platform x86_64-unknown-linux-musl
 flux run "Hello" -- argument
 flux test
 flux clean
+flux --help
+flux --version
 ```
 
 `init` creates a starter `Build.flx` without overwriting existing configuration.
@@ -135,8 +137,10 @@ The compiler must create the requested output path. Failed invocations retain
 the last successful artifact.
 
 Custom-language targets currently invoke their compiler once per target and do
-not share the C/C++ translation-unit cache. Mixing custom-language and C/C++
-sources in one target is not implemented yet.
+not share the C/C++ translation-unit cache. A target-level cache hashes the
+compiler executable, ordered command, environment, sources, headers, libraries,
+and output. Mixing custom-language and C/C++ sources in one target is not
+implemented yet.
 
 `builtIn` currently invokes an installed Zig toolchain. Native macOS Zig C++
 links against the runtime discovered in the active SDK. Cross compilation through
