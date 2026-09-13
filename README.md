@@ -34,8 +34,9 @@ Each source file has an independent object cache. A fresh compiler dependency
 scan detects header changes, including newly resolved includes. The cache hashes
 dependency contents, compiler version, arguments, environment, and object contents.
 Unchanged objects are reused; unchanged link inputs and outputs skip linking.
-Adding a source does not rename existing objects. Compilation is bounded by
-`-jobs` (default 4), and a process lock prevents competing writers.
+Adding a source does not rename existing objects. Compilation uses the host CPU
+count by default, can be bounded with `-jobs`, and a process lock prevents
+competing writers.
 
 The current cache granularity is a C/C++ translation unit. Editing one function
 recompiles its source file and any affected dependents, not individual functions.

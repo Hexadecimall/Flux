@@ -8,7 +8,7 @@ import tempfile
 
 def exercise(binary, scratch, compiler):
     help_result = subprocess.run([str(binary), "--help"], text=True, capture_output=True, timeout=30)
-    assert help_result.returncode == 0 and "-platform triple" in help_result.stdout, help_result.stdout + help_result.stderr
+    assert help_result.returncode == 0 and "-platform triple" in help_result.stdout and "-jobs count" in help_result.stdout, help_result.stdout + help_result.stderr
     version_result = subprocess.run([str(binary), "--version"], text=True, capture_output=True, timeout=30)
     assert version_result.returncode == 0 and version_result.stdout == "Flux 0.2.0\n", version_result.stdout + version_result.stderr
     with tempfile.TemporaryDirectory(prefix="flux-integration-", dir=scratch) as temporary:

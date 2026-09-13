@@ -45,7 +45,11 @@ fn run(initialization: std.process.Init) !u8 {
     }
 
     if (std.mem.eql(u8, arguments[1], "build") or std.mem.eql(u8, arguments[1], "run") or std.mem.eql(u8, arguments[1], "test")) {
-        var engine = flux.build_engine.Engine{ .allocator = allocator, .input_output = initialization.io };
+        var engine = flux.build_engine.Engine{
+            .allocator = allocator,
+            .input_output = initialization.io,
+            .jobs = @min(std.Thread.getCpuCount() catch 4, 256),
+        };
         engine.testing = std.mem.eql(u8, arguments[1], "test");
         const working_directory = try std.process.currentPathAlloc(initialization.io, allocator);
         var compiler_environment = try initialization.environ_map.clone(allocator);
@@ -154,7 +158,7 @@ const help_text =
     \\Flux 0.2.0
     \\
     \\Usage:
-    \\  flux build [targetName] [-profile debug|release] [-platform triple]
+    \\  flux build [targetName] [-profile debug|release] [-platform triple] [-jobs count]
     \\  flux run [targetName] [-- arguments...]
     \\  flux test [targetName]
     \\  flux init
