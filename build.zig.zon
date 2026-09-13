@@ -9,6 +9,7 @@
         "build.zig.zon",
         "src",
         "examples",
+        "tests",
         "LICENSE",
         "README.md",
     },

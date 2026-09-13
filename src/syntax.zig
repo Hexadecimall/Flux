@@ -175,6 +175,7 @@ const Parser = struct {
     lexer: Lexer,
     current: Token,
     issue: ?Issue = null,
+    depth: usize = 0,
 
     fn init(allocator: std.mem.Allocator, source: []const u8) Parser {
         var lexer = Lexer{ .source = source };
@@ -200,6 +201,12 @@ const Parser = struct {
     }
 
     fn parseCall(parser: *Parser) std.mem.Allocator.Error!?*Call {
+        if (parser.depth >= 128) {
+            parser.fail("declaration nesting exceeds 128 levels");
+            return null;
+        }
+        parser.depth += 1;
+        defer parser.depth -= 1;
         if (parser.current.kind != .identifier) {
             parser.fail("expected a declaration name");
             return null;
@@ -258,7 +265,7 @@ const Parser = struct {
 
     fn parseValue(parser: *Parser) std.mem.Allocator.Error!?Value {
         return switch (parser.current.kind) {
-            .string => parser.consumeTextValue(.string),
+            .string => try parser.consumeStringValue(),
             .number => parser.consumeNumberValue(),
             .identifier => identifier_value: {
                 const saved_lexer = parser.lexer;
@@ -279,14 +286,42 @@ const Parser = struct {
         };
     }
 
-    fn consumeTextValue(parser: *Parser, comptime field: std.meta.Tag(Value)) Value {
-        const text = parser.current.text;
+    fn consumeStringValue(parser: *Parser) std.mem.Allocator.Error!?Value {
+        const content = parser.current.text;
+        var decoded: std.ArrayList(u8) = .empty;
+        defer decoded.deinit(parser.allocator);
+        var index: usize = 0;
+        while (index < content.len) : (index += 1) {
+            var character = content[index];
+            if (character == '\\') {
+                index += 1;
+                if (index == content.len) {
+                    parser.fail("unterminated escape");
+                    return null;
+                }
+                character = switch (content[index]) {
+                    '\\' => '\\',
+                    '"' => '"',
+                    'n' => '\n',
+                    'r' => '\r',
+                    't' => '\t',
+                    else => {
+                        parser.fail("unknown string escape");
+                        return null;
+                    },
+                };
+            }
+            try decoded.append(parser.allocator, character);
+        }
         parser.advance();
-        return @unionInit(Value, @tagName(field), text);
+        return .{ .string = try decoded.toOwnedSlice(parser.allocator) };
     }
 
-    fn consumeNumberValue(parser: *Parser) Value {
-        const number = std.fmt.parseInt(usize, parser.current.text, 10) catch 0;
+    fn consumeNumberValue(parser: *Parser) ?Value {
+        const number = std.fmt.parseInt(usize, parser.current.text, 10) catch {
+            parser.fail("integer is too large");
+            return null;
+        };
         parser.advance();
         return .{ .number = number };
     }
@@ -438,4 +473,19 @@ test "comments and nested argument calls parse" {
             try std.testing.expect(document.calls[0].arguments[0] == .call);
         },
     }
+}
+
+test "oversized integer is rejected instead of becoming zero" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const result = try parse(arena.allocator(), "argument(99999999999999999999999999999999999999)");
+    try std.testing.expect(result == .issue);
+}
+
+test "escaped quote is decoded in a string value" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const result = try parse(arena.allocator(), "project(\"a\\\"b\")");
+    try std.testing.expect(result == .document);
+    try std.testing.expectEqualStrings("a\"b", result.document.calls[0].arguments[0].string);
 }
