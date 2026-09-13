@@ -4,7 +4,7 @@ set -eu
 usage() {
     printf '%s\n' \
         'Usage: ./install.sh [-prefix directory] [-version version]' \
-        'Defaults: prefix=/usr/local, version=0.2.0'
+        'Defaults: prefix=/usr/local, version=0.3.0'
 }
 
 fail() {
@@ -14,7 +14,7 @@ fail() {
 
 invocation_root=$(pwd -P)
 install_prefix=/usr/local
-release_version=0.2.0
+release_version=0.3.0
 
 while [ "$#" -gt 0 ]; do
     case "$1" in

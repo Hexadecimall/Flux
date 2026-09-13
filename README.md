@@ -51,13 +51,13 @@ Dependency preprocessing and content checks still run during a no-change build.
 OS and architecture, verifies its SHA-256 checksum, and installs to `/usr/local/bin`.
 
 ```sh
-./install.sh -prefix "$INSTALL_PREFIX" -version 0.2.0
+./install.sh -prefix "$INSTALL_PREFIX" -version 0.3.0
 ```
 
 An existing installation is not replaced. Supported targets are macOS and Linux
 on aarch64 and x86_64. Release tags use `v<version>`; each release must contain
 `flux-<architecture>-apple-darwin` or `flux-<architecture>-unknown-linux-musl`
-and a matching `.sha256` file. The default version is 0.2.0.
+and a matching `.sha256` file. The default version is 0.3.0.
 
 ## Building Flux
 

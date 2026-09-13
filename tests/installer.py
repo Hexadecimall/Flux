@@ -15,7 +15,7 @@ arguments = sys.argv[1:]
 scenario = os.environ["FLUX_SCENARIO"]
 address = arguments[-1]
 expected = os.environ["FLUX_ASSET"]
-assert address.startswith("https://github.com/Hexadecimall/Flux/releases/download/v0.2.0/")
+assert address.startswith("https://github.com/Hexadecimall/Flux/releases/download/v0.3.0/")
 assert address.rsplit("/", 1)[1] in (expected, expected + ".sha256")
 assert arguments[arguments.index("--proto") + 1] == "=https"
 assert arguments[arguments.index("--proto-redir") + 1] == "=https"
@@ -48,7 +48,7 @@ def exercise(installer, scratch):
             (commands / "uname").write_text(
                 f'#!/bin/sh\ncase "$1" in -s) echo {system};; -m) echo {machine};; esac\n')
             (commands / "uname").chmod(0o755)
-            version = "0.3.0" if scenario == "wrongVersion" else "0.2.0"
+            version = "0.4.0" if scenario == "wrongVersion" else "0.3.0"
             binary = f'#!/bin/sh\necho "Flux {version}"\n'.encode()
             if scenario == "smokeFailure":
                 binary += b"exit 19\n"

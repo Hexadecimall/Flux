@@ -1,6 +1,6 @@
 .{
     .name = .flux,
-    .version = "0.2.0",
+    .version = "0.3.0",
     .fingerprint = 0x7252313a9f45dcd4,
     .minimum_zig_version = "0.16.0",
     .dependencies = .{},
