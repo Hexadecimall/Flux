@@ -1,0 +1,21 @@
+project("Mixed Languages") {
+    language(c) {
+        compiler(clang)
+    }
+
+    language(cxx) {
+        compiler(zig)
+    }
+
+    target("Mixed", executable) {
+        source(implementation) {
+            "source/*.c"
+            "source/*.cpp"
+        }
+
+        source(header) {
+            "include/*.h"
+            "include/*.hpp"
+        }
+    }
+}
